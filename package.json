@@ -1,0 +1,28 @@
+{
+  "name": "skillcredsjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "verify": "./dist/bin/verify.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^11.9.4",
+    "@types/node-rsa": "^1.0.0",
+    "@types/yargs": "^12.0.9",
+    "typescript": "^3.3.3"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "jsonld": "^1.5.1",
+    "node-rsa": "^1.0.3",
+    "yargs": "^13.2.0"
+  }
+}
