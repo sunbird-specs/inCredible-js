@@ -1,3 +1,4 @@
+import { sec } from './props';
 import { SignatureSuite } from './suites';
 import NodeRsa = require('node-rsa');
 
@@ -17,7 +18,7 @@ export interface SignatureProtocol {
      *            [domain]: a domain for which this signature is valid
      * @return Buffer containing bytes of the hash
      */
-    createVerifyHash(canonicalDoc: string, options: {[k: string]: string}): Promise<Buffer>;
+    createVerifyHash(canonicalDoc: string, options: { creator: string, created?: string, nonce?: string, domain?: string}): Promise<Buffer>;
 
     /**
      * Given a JSON-LD document, a private key and an id for the key returns
@@ -29,7 +30,7 @@ export interface SignatureProtocol {
      * Given a signed JSON-LD document, verifies the signature according to the
      * signature protocol
      */
-    verify(signedDocument: {[k: string]: any}): Promise<boolean>;
+    verify(signedDocument: {[k: string]: any}, ldPublicKey:{[k: string]: any}): Promise<boolean>;
 }
 
 
@@ -43,22 +44,10 @@ export class LinkedDataSignature implements SignatureProtocol {
         this.trace = true;
     }
 
-    async createVerifyHash(canonicalDoc: string, options: {[k: string]: string}): Promise<Buffer> {
-        if (!options.hasOwnProperty('creator')) {
-            throw ReferenceError("Must provide 'creator' option");
-        }
-
-        var cleanOpts: {[k: string]: string} = {
-            'sec:creator': options['creator'],
-            'sec:created': options.hasOwnProperty('created') ? options['created']:new Date().toUTCString()
-        }
-        if (options.hasOwnProperty('nonce')) {
-            cleanOpts['sec:nonce'] = options['nonce'];
-        }
-        if (options.hasOwnProperty('domain')) {
-            cleanOpts['sec:domain'] = options['domain'];
-        }
-
+    async createVerifyHash(canonicalDoc: string,
+                           options: {creator: string, created?:string, nonce?: string, domain?: string}): Promise<Buffer>
+    {
+        var cleanOpts = this.createSignatureOptions(options);
         // Step 4.1: Canonicalise the options
         const canonicalOpts = await this.suite.normalize(cleanOpts);
         if (this.trace) {
@@ -68,6 +57,7 @@ export class LinkedDataSignature implements SignatureProtocol {
         const optsHash = this.suite.hash(canonicalOpts);
         // Step 4.3: compute hash of the document
         const docHash = this.suite.hash(canonicalDoc);
+        // Step 4.4: concatenate the hashes
         return Buffer.concat([optsHash, docHash])
     }
 
@@ -90,6 +80,10 @@ export class LinkedDataSignature implements SignatureProtocol {
         // 16 Feb 2019
         // Step 1: copy the credential
         // TODO: create a proper copy
+        if (document.hasOwnProperty(sec.SIGNATURE)) {
+            throw new Error('Document already contains a signature');
+        }
+
         var output = document;
         // Step 2: Canonicalise
         const canonicalDoc = await this.suite.normalize(document);
@@ -106,26 +100,28 @@ export class LinkedDataSignature implements SignatureProtocol {
             process.stderr.write("TBS:\n"+tbs.toString('base64'));
         }
         const signatureValue = this.suite.sign(tbs, privateKey);
-        output['ocd:signature'] = this.createSignature(keyId, created, signatureValue);
+        output[sec.SIGNATURE] = this.createSignature(signatureValue, {
+            creator: keyId,
+            created: created,
+        });
         return output;
     }
 
-    async verify(signedDocument: {[k: string]: any}): Promise<boolean> {
+    async verify(signedDocument: {[k: string]: any}, ldPublicKey:{[k: string]: any}): Promise<boolean> {
         // Following the algorithm at:
         // https://w3c-dvcg.github.io/ld-signatures/#signature-verification-algorithm
         // 16 Feb 2019
-        // Step 1: Get the cryptographic key and rsa object
+        // Step 1: Get the rsa public key object
         // Step 1b: verifying owner from sec_key is left as an exercise
-        const issuerKey = signedDocument['ob:badge']['ocd:awardedBy']['ocd:publicKey']
-        const publicKey = new NodeRsa(issuerKey['sec:publicKeyPem'], 'pkcs8-public-pem', {
+        const publicKey = new NodeRsa(ldPublicKey['sec:publicKeyPem'], 'pkcs8-public-pem', {
             signingScheme: 'pkcs1-sha256'
         });
         // Step 2: copy signed document into document
         // TODO: make a deep copy
         var document = signedDocument;
         // Step 3: removing the signature node from the document for comparison
-        const signature = document['ocd:signature']
-        delete document['ocd:signature'];
+        const signature = document[sec.SIGNATURE]
+        delete document[sec.SIGNATURE];
         // Step 4: canonicalise the document
         const canonicalDoc = await this.suite.normalize(document);
         if (this.trace) {
@@ -133,26 +129,49 @@ export class LinkedDataSignature implements SignatureProtocol {
         }
         // Step 5: Create the verify hash using the signature options
         const tbv = await this.createVerifyHash(canonicalDoc, {
-            creator: signature['sec:creator'],
-            created: signature['sec:created']
+            creator: signature[sec.CREATOR],
+            created: signature[sec.CREATED]
         });
         if (this.trace) {
             process.stderr.write("TBV:\n"+tbv.toString('base64')+"\n");
         }
         // Step 6: verify
-        const signatureValue = new Buffer(signature['sec:signatureValue'], 'base64');
+        const signatureValue = new Buffer(signature[sec.SIGNATURE_VALUE], 'base64');
         return this.suite.verify(tbv, signatureValue, publicKey);
     }
 
     /**
      * Creates a LinkedDataSignature object given a signatureValue
      */
-    createSignature(creator: string, created: string, signatureValue: Buffer): object {
-        return {
-            "@type": this.suite.name(),
-            "sec:creator": creator,
-            "sec:created": created,
-            "sec:signatureValue": signatureValue.toString('base64')
-        };
+    createSignature(signatureValue: Buffer,
+                    options: {creator: string, created?:string, nonce?: string, domain?: string}): object
+    {
+        var signatureOptions = this.createSignatureOptions(options);
+
+        var signature: {[k: string]: any} = Object.assign({"@type": this.suite.name()}, signatureOptions);
+        signature[sec.SIGNATURE_VALUE] = signatureValue.toString('base64');
+        return signature;
+    }
+
+    /**
+     * Creates the options for a LinkedDataSignature object
+     */
+    createSignatureOptions(options: {creator: string, created?:string, nonce?: string, domain?: string}): object
+    {
+        if (!options.creator) {
+            throw ReferenceError("Must provide 'creator' option");
+        }
+
+        var cleanOpts: {[k: string]: any} = {};
+        cleanOpts[sec.CREATOR] = options.creator;
+        cleanOpts[sec.CREATED] = options.created || new Date().toUTCString();
+
+        if (options.hasOwnProperty('nonce')) {
+            cleanOpts[sec.NONCE] = options.nonce;
+        }
+        if (options.hasOwnProperty('domain')) {
+            cleanOpts[sec.DOMAIN] = options.domain;
+        }
+        return cleanOpts;
     }
 }
