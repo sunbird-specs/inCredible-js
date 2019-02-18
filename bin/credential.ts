@@ -87,37 +87,20 @@ class Signer {
             this.err.write("Signature verification succeeded!\n");
         }
     }
+
+    async normalizeCredentialInFile(filename: any, algorithm: string): Promise<void> {
+        var document = JSON.parse(this.utf8FileContents(filename));
+        var credential = await this.compact(document);
+
+        var normalized = await jsonld.normalize(credential, {
+            algorithm: algorithm,
+            format: 'application/n-quads'
+        });
+        this.out.write(normalized+"\n");
+        this.err.write('Credential normalized using '+algorithm+"\n");
+    }
 }
 
-async function signCredentialInFile(filename: string, options: {[k: string]: any}) {
-    var keyFile = options['keyFile'];
-    var keyId = options['keyId'];
-
-    const fileContents = fs.readFileSync(filename, 'utf8');
-    var document = JSON.parse(fileContents);
-    const context = document['@context'];
-    delete document['@context'];
-    var credential = await jsonld.compact(document, COMPACT_CONTEXT, {expandContext: context});
-
-    const publicKeyPem = fs.readFileSync(keyFile+'.pub', 'utf8');
-    var issuer = credential[ob.BADGE][ob.ISSUER]
-    issuer[sec.PUBLIC_KEY] = {
-        '@id': keyId,
-        '@type': 'ob:CryptographicKey',
-        'sec:owner': issuer['@id'],
-        'sec:publicKeyPem': publicKeyPem
-    };
-
-    const privateKeyContents = fs.readFileSync(keyFile, 'utf8');
-    const privateKey = new NodeRsa(privateKeyContents, 'pkcs8-private-pem', {
-        signingScheme: 'pkcs1-sha256'
-    });
-
-    const signature = new LinkedDataSignature(new RsaSignature2018());
-    const signedCredential = signature.sign(credential, privateKey, keyId);
-    process.stdout.write(JSON.stringify(signedCredential, null, 2)+"\n")
-    process.stderr.write("Credential created.\n");
-}
 
 async function main() {
     var argv = yargs
@@ -157,6 +140,30 @@ async function main() {
                 }),
             handler: async (argv) => {
                 await new Signer().verifyCredentialInFile(argv.file);
+                argv._handled = true;
+            }
+        })
+        .command({
+            command: 'normalize <file>',
+            aliases: ['n'],
+            describe: 'Normalize credential in <file>',
+            builder: (yargs) => yargs
+                .option('urdna2015', {
+                    alias: 'd15',
+                    describe: 'Use URDNA2015 RDF Dataset Normalization algorithm',
+                    type: 'boolean',
+                    default: undefined,
+                })
+                .option('urgna2012', {
+                    alias: 'g12',
+                    describe: 'Use older URGNA2012 RDF Dataset Normalization algorithm',
+                    type: 'boolean',
+                    default: undefined
+                })
+                .conflicts('urdna2012', 'urdna2015'),
+            handler: async (argv) => {
+                var algorithm = argv.urgna2012 ? 'URGNA2012' : 'URDNA2015';
+                await new Signer().normalizeCredentialInFile(argv.file, algorithm);
                 argv._handled = true;
             }
         })
