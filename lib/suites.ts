@@ -59,7 +59,7 @@ export class RsaSignature2018 implements SignatureSuite {
         return hasher.digest();
     }
 
-    sign(message: Buffer, privateKey: NodeRsa): Buffer {
+    sign(message: Buffer, privateKey: {sign: (a: Buffer) => Buffer}): Buffer {
         return privateKey.sign(message);
     }
 
