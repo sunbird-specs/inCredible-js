@@ -24,13 +24,14 @@ export interface SignatureSuite {
     /**
      * Given a message, signs the message using the private key provided
      */
-    sign(message: Buffer, privateKey: NodeRsa): Buffer;
+    sign(message: Buffer, privateKey: {sign: (a: Buffer) => Buffer}): Buffer;
 
     /**
      * Given a signature, data, and public key verifies if the signature matches
      * the data
      */
-     verify(message: Buffer, signature: Buffer, publicKey: NodeRsa): boolean;
+     verify(message: Buffer, signature: Buffer,
+            publicKey: {verify: (a: Buffer, b: Buffer) => boolean}): boolean;
 }
 
 
@@ -64,7 +65,7 @@ export class RsaSignature2018 implements SignatureSuite {
     }
 
     verify(message: Buffer, signature: Buffer,
-           publicKey: {verify: (a: Buffer, b: Buffer): boolean}): boolean {
+           publicKey: {verify: (a: Buffer, b: Buffer) => boolean}): boolean {
         return publicKey.verify(message, signature);
     }
 }
