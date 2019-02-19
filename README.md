@@ -5,6 +5,7 @@ Skill credential library in JS
 
 ```shell
 $ npm install .
+$ npm run build
 $ npm link
 ```
 
