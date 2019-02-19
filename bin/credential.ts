@@ -9,12 +9,14 @@ import { sec, ob } from '../lib/props';
 import { LinkedDataSignature } from '../lib/signatures';
 import { RsaSignature2018 } from '../lib/suites';
 
+
 const COMPACT_CONTEXT = {
   'ob': 'https://w3id.org/openbadges/v2#',
   'scd': 'https://skillcredentialspec.org/v1/',
   'sec': 'https://w3id.org/security/v1#',
   'schema': 'http://schema.org/'
 }
+
 
 class Signer {
     out = process.stdout;
@@ -47,8 +49,7 @@ class Signer {
         issuer[sec.PUBLIC_KEY] = obj;
     }
 
-    async signCredentialInFile(filename: any, options: {[k: string]: any})
-    {
+    async signCredentialInFile(filename: any, options: {[k: string]: any}) {
         var keyFile = this.prop(options, 'keyFile');
         var keyId = this.prop(options, 'keyId');
 
@@ -125,7 +126,8 @@ async function main() {
                     type: 'string'
                 }),
             handler: async (argv) => {
-                await new Signer().signCredentialInFile(argv.file, {keyFile: argv.keyFile, keyId: argv.keyId})
+                await new Signer().signCredentialInFile(argv.file,
+                                                        {keyFile: argv.keyFile, keyId: argv.keyId});
                 argv._handled = true;
             }
         })
@@ -148,6 +150,10 @@ async function main() {
             aliases: ['n'],
             describe: 'Normalize credential in <file>',
             builder: (yargs) => yargs
+                .positional('file', {
+                    describe: 'The file containing the credential to normalize',
+                    type: 'string'
+                })
                 .option('urdna2015', {
                     alias: 'd15',
                     describe: 'Use URDNA2015 RDF Dataset Normalization algorithm',

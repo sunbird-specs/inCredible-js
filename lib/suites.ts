@@ -63,7 +63,8 @@ export class RsaSignature2018 implements SignatureSuite {
         return privateKey.sign(message);
     }
 
-    verify(message: Buffer, signature: Buffer, publicKey: NodeRsa): boolean {
+    verify(message: Buffer, signature: Buffer,
+           publicKey: {verify: (a: Buffer, b: Buffer): boolean}): boolean {
         return publicKey.verify(message, signature);
     }
 }
