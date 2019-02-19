@@ -120,7 +120,7 @@ export class LinkedDataSignature implements SignatureProtocol {
         // TODO: make a deep copy
         var document = signedDocument;
         // Step 3: removing the signature node from the document for comparison
-        const signature = document[sec.SIGNATURE]
+        const signature = document[sec.SIGNATURE];
         delete document[sec.SIGNATURE];
         // Step 4: canonicalise the document
         const canonicalDoc = await this.suite.normalize(document);

@@ -12,7 +12,7 @@ import { RsaSignature2018 } from '../lib/suites';
 
 const COMPACT_CONTEXT = {
   'ob': 'https://w3id.org/openbadges/v2#',
-  'scd': 'https://skillcredentialspec.org/v1/',
+  'scd': 'https://skillcredentialspec.org/v1#',
   'sec': 'https://w3id.org/security/v1#',
   'schema': 'http://schema.org/'
 }
@@ -79,9 +79,9 @@ class Signer {
         var document = JSON.parse(this.utf8FileContents(filename));
         var signedCredential = await this.compact(document);
 
+        var issuer = this.pickIssuer(signedCredential);
         var signature = new LinkedDataSignature(new RsaSignature2018());
-        var verified = await signature.verify(signedCredential,
-                                              signedCredential[ob.BADGE][ob.ISSUER][sec.PUBLIC_KEY]);
+        var verified = await signature.verify(signedCredential, issuer[sec.PUBLIC_KEY]);
         if (!verified) {
             throw new Error("Signature verification failed.");
         } else {
