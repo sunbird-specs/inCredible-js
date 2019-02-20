@@ -39,9 +39,10 @@ export class LinkedDataSignature implements SignatureProtocol {
     suite: SignatureSuite;
     trace: boolean;
 
-    constructor(suite: SignatureSuite) {
+    constructor(suite: SignatureSuite, options?: {trace?: boolean}) {
+        options = options || {};
         this.suite = suite;
-        this.trace = true;
+        this.trace = options.trace || false;
     }
 
     async createVerifyHash(canonicalDoc: string,
