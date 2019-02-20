@@ -50,6 +50,7 @@ class Signer {
     }
 
     async signCredentialInFile(filename: any, options: {[k: string]: any}) {
+        var trace = options.trace || false;
         var keyFile = this.prop(options, 'keyFile');
         var keyId = this.prop(options, 'keyId');
 
@@ -63,7 +64,7 @@ class Signer {
             'sec:publicKeyPem': this.utf8FileContents(keyFile+'.pub')
         });
 
-        const signature = new LinkedDataSignature(new RsaSignature2018());
+        const signature = new LinkedDataSignature(new RsaSignature2018(), {trace: trace});
         const signedCredential = await signature.sign(credential,
                                                       new NodeRsa(this.utf8FileContents(keyFile),
                                                                   'pkcs8-private-pem',
@@ -74,9 +75,8 @@ class Signer {
         this.err.write("Credential created.\n");
     }
 
-    async verifyCredentialInFile(filename: any, options?: {trace?: boolean}): Promise<void> {
-        options = options || {};
-        var trace = options.trace || true;
+    async verifyCredentialInFile(filename: any, options: {[k: string]: any}): Promise<void> {
+        var trace = options.trace || false;
         var signedCredential = JSON.parse(this.utf8FileContents(filename));
 
         // Create a compacted version of the credential in app-specific vocabulary
@@ -110,6 +110,11 @@ class Signer {
 
 async function main() {
     var argv = yargs
+        .option('t', {
+            alias: 'trace',
+            describe: 'Enable tracing mode for all operations',
+            type: 'boolean'
+        })
         .command({
             command: 'sign <file>',
             aliases: ['s'],
@@ -132,7 +137,9 @@ async function main() {
                 }),
             handler: async (argv) => {
                 await new Signer().signCredentialInFile(argv.file,
-                                                        {keyFile: argv.keyFile, keyId: argv.keyId});
+                                                       {keyFile: argv.keyFile,
+                                                        keyId: argv.keyId,
+                                                        trace: argv.trace});
                 argv._handled = true;
             }
         })
@@ -146,7 +153,7 @@ async function main() {
                     type: 'string'
                 }),
             handler: async (argv) => {
-                await new Signer().verifyCredentialInFile(argv.file);
+                await new Signer().verifyCredentialInFile(argv.file, {trace: argv.trace});
                 argv._handled = true;
             }
         })
