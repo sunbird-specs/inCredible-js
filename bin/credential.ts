@@ -37,7 +37,7 @@ class Signer {
     }
 
     compact(document: object) {
-        const docContext = this.pop(document, '@context');
+        const docContext = this.prop(document, '@context');
         return jsonld.compact(document, COMPACT_CONTEXT, {expandContext: docContext});
     }
 
@@ -76,11 +76,16 @@ class Signer {
 
     async verifyCredentialInFile(filename: any, options?: {trace?: boolean}): Promise<void> {
         options = options || {};
-        var document = JSON.parse(this.utf8FileContents(filename));
-        var signedCredential = document;
+        var trace = options.trace || true;
+        var signedCredential = JSON.parse(this.utf8FileContents(filename));
 
-        var issuer = this.pickIssuer(signedCredential);
-        var signature = new LinkedDataSignature(new RsaSignature2018());
+        // Create a compacted version of the credential in app-specific vocabulary
+        // for readonly usage -- this is to ensure that compaction does not alter the
+        // shape of the signed credential thereby invalidating the signature.
+        var compactedCred = await this.compact(signedCredential);
+        var issuer = this.pickIssuer(compactedCred);
+
+        var signature = new LinkedDataSignature(new RsaSignature2018(), {trace: trace});
         var verified = await signature.verify(signedCredential, issuer[sec.PUBLIC_KEY]);
         if (!verified) {
             throw new Error("Signature verification failed.");
