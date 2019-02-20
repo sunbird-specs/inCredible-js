@@ -77,7 +77,7 @@ class Signer {
     async verifyCredentialInFile(filename: any, options?: {trace?: boolean}): Promise<void> {
         options = options || {};
         var document = JSON.parse(this.utf8FileContents(filename));
-        var signedCredential = await this.compact(document);
+        var signedCredential = document;
 
         var issuer = this.pickIssuer(signedCredential);
         var signature = new LinkedDataSignature(new RsaSignature2018());
