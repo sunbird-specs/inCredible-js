@@ -48,7 +48,7 @@ export class RsaSignature2018 implements SignatureSuite {
      * also known as URDNA2015
      */
     normalize(document: object): Promise<string> {
-        return jsonld.canonize(document, {
+        return jsonld.normalize(document, {
             algorithm: 'URDNA2015',
             format: 'application/n-quads'
         });
